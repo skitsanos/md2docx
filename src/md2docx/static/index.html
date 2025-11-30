@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MD2DOCX API - Markdown to Word Conversion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: 'hsl(217 91% 40%)',
+              foreground: 'hsl(0 0% 100%)',
+            },
+            background: 'hsl(0 0% 100%)',
+            foreground: 'hsl(0 0% 4%)',
+            muted: {
+              DEFAULT: 'hsl(0 0% 96%)',
+              foreground: 'hsl(0 0% 45%)',
+            },
+            border: 'hsl(0 0% 90%)',
+          },
+          fontFamily: {
+            display: ['Space Grotesk', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    * { border-radius: 0 !important; }
+    body { font-family: 'Inter', sans-serif; }
+    .font-display { font-family: 'Space Grotesk', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+
+  <!-- HEADER -->
+  <header class="border-b-4 border-primary bg-background">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="flex items-center justify-between h-16">
+        <a href="/" class="font-display text-xl font-bold uppercase tracking-tight">
+          MD2DOCX<span class="text-primary">.</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-8">
+          <a href="/docs" class="text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+            Swagger
+          </a>
+          <a href="/redoc" class="text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+            ReDoc
+          </a>
+          <a href="/health" class="text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+            Status
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="py-12 md:py-20 border-b-8 border-primary">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <p class="font-mono text-xs font-bold uppercase tracking-widest text-primary mb-4">
+            REST API
+          </p>
+          <h1 class="font-display text-4xl md:text-6xl font-bold uppercase leading-[0.9] tracking-tighter mb-6">
+            Markdown
+            <br />
+            <span class="text-primary">to Word.</span>
+          </h1>
+          <p class="text-lg text-muted-foreground leading-relaxed mb-8 max-w-lg">
+            Convert Markdown content to professionally styled Word documents with custom branding, headers, footers, and more.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <a href="/docs" class="bg-primary text-primary-foreground px-8 py-3 font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
+              Try It Now
+            </a>
+            <a href="/branding/sample" class="border-2 border-foreground px-8 py-3 font-bold uppercase tracking-wide hover:bg-foreground hover:text-background transition-colors">
+              Sample Config
+            </a>
+          </div>
+        </div>
+        <div class="bg-foreground text-background p-8 border-l-4 border-primary">
+          <p class="font-mono text-xs text-primary mb-4 uppercase tracking-wider">Quick Start</p>
+          <pre class="font-mono text-sm leading-relaxed overflow-x-auto"><code class="text-background/90">curl -X POST /convert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "markdown": "# Hello World",
+    "branding": {
+      "title": "My Doc"
+    }
+  }' -o document.docx</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ENDPOINTS SECTION -->
+  <section class="py-12 md:py-20">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="mb-12">
+        <h2 class="font-display text-3xl md:text-4xl font-bold uppercase tracking-tighter mb-4">
+          API Endpoints
+        </h2>
+        <div class="h-1 w-16 bg-primary"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-border">
+        <!-- Convert -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-primary text-primary-foreground px-3 py-1 font-mono text-xs font-bold">POST</span>
+            <span class="font-mono text-sm">/convert</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Convert Markdown</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Convert Markdown content to Word document with optional branding configuration.
+          </p>
+        </div>
+
+        <!-- Convert File -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-primary text-primary-foreground px-3 py-1 font-mono text-xs font-bold">POST</span>
+            <span class="font-mono text-sm">/convert/file</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Upload & Convert</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Upload a Markdown file (.md, .txt) and receive a Word document.
+          </p>
+        </div>
+
+        <!-- Parse -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-primary text-primary-foreground px-3 py-1 font-mono text-xs font-bold">POST</span>
+            <span class="font-mono text-sm">/parse</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Parse to AST</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Parse Markdown content into Abstract Syntax Tree for inspection.
+          </p>
+        </div>
+
+        <!-- Health -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-foreground text-background px-3 py-1 font-mono text-xs font-bold">GET</span>
+            <span class="font-mono text-sm">/health</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Health Check</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Check API status and version information.
+          </p>
+        </div>
+
+        <!-- Branding Sample -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-foreground text-background px-3 py-1 font-mono text-xs font-bold">GET</span>
+            <span class="font-mono text-sm">/branding/sample</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Sample Branding</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Get a complete sample branding configuration as a template.
+          </p>
+        </div>
+
+        <!-- Docs -->
+        <div class="bg-background p-8">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-foreground text-background px-3 py-1 font-mono text-xs font-bold">GET</span>
+            <span class="font-mono text-sm">/docs</span>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Interactive Docs</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Swagger UI for interactive API exploration and testing.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES SECTION -->
+  <section class="py-12 md:py-20 bg-muted">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="mb-12">
+        <h2 class="font-display text-3xl md:text-4xl font-bold uppercase tracking-tighter mb-4">
+          Features
+        </h2>
+        <div class="h-1 w-16 bg-primary"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="border-l-4 border-primary bg-background p-8">
+          <div class="w-10 h-10 bg-primary flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Full Markdown</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Headings, lists, tables, code blocks, links, images, and more.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="border-l-4 border-primary bg-background p-8">
+          <div class="w-10 h-10 bg-primary flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+            </svg>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Custom Branding</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Fonts, colors, headers, footers, logos, and page layout.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="border-l-4 border-primary bg-background p-8">
+          <div class="w-10 h-10 bg-primary flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+          <h3 class="font-display text-lg font-bold uppercase mb-2">Secure</h3>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Rate limiting, CORS, request timeouts, and SSRF protection.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY SECTION -->
+  <section class="py-12 md:py-20">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="mb-12">
+        <h2 class="font-display text-3xl md:text-4xl font-bold uppercase tracking-tighter mb-4">
+          Security
+        </h2>
+        <div class="h-1 w-16 bg-primary"></div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-0.5 bg-border">
+        <div class="bg-background p-6 text-center">
+          <p class="font-display text-2xl md:text-3xl font-bold mb-1">30/min</p>
+          <p class="text-xs text-muted-foreground uppercase tracking-wider">Rate Limit</p>
+        </div>
+        <div class="bg-background p-6 text-center">
+          <p class="font-display text-2xl md:text-3xl font-bold mb-1">60s</p>
+          <p class="text-xs text-muted-foreground uppercase tracking-wider">Timeout</p>
+        </div>
+        <div class="bg-background p-6 text-center">
+          <p class="font-display text-2xl md:text-3xl font-bold mb-1">3MB</p>
+          <p class="text-xs text-muted-foreground uppercase tracking-wider">Max Image</p>
+        </div>
+        <div class="bg-background p-6 text-center">
+          <p class="font-display text-2xl md:text-3xl font-bold mb-1">5MB</p>
+          <p class="text-xs text-muted-foreground uppercase tracking-wider">Max Payload</p>
+        </div>
+      </div>
+
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="border-l-4 border-border bg-background p-6">
+          <h4 class="font-display font-bold uppercase mb-2">Request Tracing</h4>
+          <p class="text-sm text-muted-foreground">Every response includes <code class="font-mono bg-muted px-1">X-Request-ID</code> header for debugging.</p>
+        </div>
+        <div class="border-l-4 border-border bg-background p-6">
+          <h4 class="font-display font-bold uppercase mb-2">Image Allowlist</h4>
+          <p class="text-sm text-muted-foreground">Remote images only fetched from configured allowed hosts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA SECTION -->
+  <section class="py-12 md:py-20 bg-foreground text-background border-t-8 border-primary">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <h2 class="font-display text-3xl md:text-4xl font-bold uppercase leading-[0.95] tracking-tighter mb-4">
+            Ready to
+            <br />
+            <span class="text-primary">Convert?</span>
+          </h2>
+          <p class="text-lg text-background/70 leading-relaxed mb-6">
+            Explore the interactive documentation to test endpoints directly in your browser.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <a href="/docs" class="bg-primary text-primary-foreground px-8 py-3 font-bold uppercase tracking-wide hover:opacity-90 transition-opacity">
+              Open Swagger UI
+            </a>
+            <a href="/redoc" class="border-2 border-background text-background px-8 py-3 font-bold uppercase tracking-wide hover:bg-background hover:text-foreground transition-colors">
+              View ReDoc
+            </a>
+          </div>
+        </div>
+        <div class="bg-background/10 p-6">
+          <p class="font-mono text-xs text-primary mb-3 uppercase tracking-wider">Response Headers</p>
+          <pre class="font-mono text-sm text-background/80 leading-relaxed"><code>HTTP/1.1 200 OK
+Content-Type: application/...
+X-Request-ID: 550e8400-e29b...
+Content-Disposition: attachment</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="bg-foreground text-background py-8 border-t border-background/10">
+    <div class="max-w-6xl mx-auto px-4 md:px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <p class="font-display text-lg font-bold uppercase tracking-tight">
+          MD2DOCX<span class="text-primary">.</span>
+        </p>
+        <nav class="flex items-center gap-6">
+          <a href="/docs" class="text-sm text-background/60 hover:text-primary transition-colors">Swagger</a>
+          <a href="/redoc" class="text-sm text-background/60 hover:text-primary transition-colors">ReDoc</a>
+          <a href="/health" class="text-sm text-background/60 hover:text-primary transition-colors">Health</a>
+        </nav>
+        <p class="text-sm text-background/40">
+          Markdown to Word API
+        </p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

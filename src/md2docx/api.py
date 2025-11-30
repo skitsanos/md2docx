@@ -12,11 +12,12 @@ import os
 import re
 import uuid
 from io import BytesIO
+from pathlib import Path
 from typing import Optional, Any
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -111,6 +112,9 @@ else:
 app.add_middleware(TimeoutMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
+# Static files directory
+STATIC_DIR = Path(__file__).parent / "static"
+
 
 # Pydantic models for API requests/responses
 class ConvertRequest(BaseModel):
@@ -149,6 +153,21 @@ def _sanitize_filename(name: Optional[str], default: str = "document.docx") -> s
         return default
     cleaned = re.sub(r"[\\/\r\n\t]+", "_", name).strip()
     return cleaned or default
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """
+    Serve the landing page.
+
+    Returns the static HTML landing page for the API.
+    """
+    index_path = STATIC_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path, media_type="text/html")
+    # Fallback redirect to docs if static file not found
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
