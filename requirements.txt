@@ -1,0 +1,9 @@
+python-docx
+mistune
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+requests
+cairosvg
+Pillow

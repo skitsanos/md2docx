@@ -1,0 +1,58 @@
+version: 3
+
+silent: true
+
+tasks:
+  api:
+    desc: Launch FastAPI server for MD2DOCX conversion
+    preconditions:
+      - test -d .venv
+    cmds:
+      - cmd: |
+          # Usage: task app:api -- --reload --port 8000
+          . .venv/bin/activate
+          uvicorn md2docx.api:app {{.CLI_ARGS}}
+        platforms: [linux, darwin]
+      - cmd: |
+          # Usage: task app:api -- --reload --port 8000
+          . .venv/Scripts/activate
+          uvicorn md2docx.api:app {{.CLI_ARGS}}
+        platforms: [windows]
+
+  api-dev:
+    desc: Launch FastAPI server in development mode with auto-reload
+    preconditions:
+      - test -d .venv
+    cmds:
+      - cmd: |
+          # Usage: task app:api-dev
+          . .venv/bin/activate
+          python -m md2docx --reload --port 8000
+        platforms: [linux, darwin]
+
+  convert:
+    desc: Convert a Markdown file to Word document
+    preconditions:
+      - test -d .venv
+    cmds:
+      - cmd: |
+          # Usage: task app:convert -- input.md output.docx
+          . .venv/bin/activate
+          md2docx {{.CLI_ARGS}}
+        platforms: [linux, darwin]
+      - cmd: |
+          # Usage: task app:convert -- input.md output.docx
+          . .venv/Scripts/activate
+          md2docx {{.CLI_ARGS}}
+        platforms: [windows]
+
+  demo:
+    desc: Convert sample Markdown to Word document
+    preconditions:
+      - test -d .venv
+    cmds:
+      - cmd: |
+          . .venv/bin/activate
+          md2docx samples/deepseek-ocr.md output/demo.docx --verbose
+          echo "Demo document created at output/demo.docx"
+        platforms: [linux, darwin]

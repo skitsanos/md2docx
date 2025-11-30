@@ -1,0 +1,194 @@
+version: 3
+
+silent: true
+
+dotenv: ['.env', '{{.ENV}}/.env', '{{.HOME}}/.env']
+
+vars:
+  DOCKER_TAG: md2docx-api
+
+includes:
+  app: Taskfile.app.yaml
+
+tasks:
+  venv:
+    desc: Create a virtual environment in .venv folder
+    cmds:
+      - |
+        PY_BIN=""
+        for CAND in python3.12 python3.11 python3.10 python3; do
+          if command -v "$CAND" >/dev/null 2>&1; then
+            if "$CAND" -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 10) else 1)" >/dev/null 2>&1; then
+              PY_BIN="$CAND"
+              break
+            fi
+          fi
+        done
+        if [ -z "$PY_BIN" ]; then
+          echo "No suitable Python (>=3.10) found on PATH" >&2
+          exit 1
+        fi
+        echo "Using Python: $PY_BIN"
+        "$PY_BIN" -m venv .venv
+      - echo "Virtual environment created in .venv/"
+    status:
+      - test -d .venv
+
+  activate-venv:
+    internal: true
+    cmds:
+      - |
+        if [ -f .venv/bin/activate ]; then
+          . .venv/bin/activate
+        elif [ -f .venv/Scripts/activate ]; then
+          . .venv/Scripts/activate
+        else
+          echo "Error: Virtual environment activation script not found"
+          exit 1
+        fi
+
+  install:
+    desc: Install dependencies with virtual environment activation
+    deps: [venv]
+    platforms: [linux, darwin]
+    cmds:
+      - |
+        # Usage: task install
+        . .venv/bin/activate && pip install --upgrade pip && pip install -U -r requirements.txt
+      - echo "Dependencies installed successfully"
+
+  install:windows:
+    desc: Install dependencies with virtual environment activation (Windows)
+    deps: [venv]
+    platforms: [windows]
+    cmds:
+      - |
+        # Usage: task install
+        . .venv/Scripts/activate && pip install --upgrade pip && pip install -U -r requirements.txt
+      - echo "Dependencies installed successfully"
+
+  clean:
+    desc: Remove virtual environment
+    cmds:
+      - rm -rf .venv
+      - echo "Virtual environment removed"
+
+  reinstall:
+    desc: Clean and reinstall everything
+    cmds:
+      - |
+        # Usage: task reinstall
+      - task: clean
+      - task: install
+
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t {{.DOCKER_TAG}}:latest --progress plain .
+      - cmd: echo "Docker image built {{.DOCKER_TAG}}:latest"
+        silent: true
+
+  docker-run:
+    desc: Run Docker container in foreground
+    preconditions:
+      - test -f .env
+    cmds:
+      - |
+        # Usage: task docker-run
+        docker run -p 8000:8000 --env-file .env --name {{.DOCKER_TAG}}-dev {{.DOCKER_TAG}}:latest
+
+  docker-run-bg:
+    desc: Run Docker container in background
+    preconditions:
+      - test -f .env
+    cmds:
+      - docker run -d -p 8000:8000 --env-file .env --name {{.DOCKER_TAG}}-dev {{.DOCKER_TAG}}:latest
+      - cmd: echo "Container started in background. View logs with 'task docker-logs'"
+        silent: true
+
+  docker-stop:
+    desc: Stop running Docker container
+    cmds:
+      - docker stop {{.DOCKER_TAG}}-dev || echo "Container not running"
+      - docker rm {{.DOCKER_TAG}}-dev || echo "Container not found"
+
+  docker-logs:
+    desc: View Docker container logs
+    cmds:
+      - docker logs -f {{.DOCKER_TAG}}-dev
+
+  docker-shell:
+    desc: Open shell in running container
+    cmds:
+      - docker exec -it {{.DOCKER_TAG}}-dev /bin/bash
+
+  docker-clean:
+    desc: Stop and remove all Docker resources
+    cmds:
+      - docker stop {{.DOCKER_TAG}}-dev 2>/dev/null || true
+      - docker rm {{.DOCKER_TAG}}-dev 2>/dev/null || true
+      - docker rmi {{.DOCKER_TAG}}:latest 2>/dev/null || true
+      - echo "Docker resources cleaned"
+
+  # Docker Compose tasks
+  up:
+    desc: Start services with docker-compose
+    preconditions:
+      - test -f .env
+    cmds:
+      - docker-compose up -d
+      - cmd: |
+          echo "Services started"
+          echo "API: http://localhost:8000"
+          echo "Docs: http://localhost:8000/docs"
+        silent: true
+
+  down:
+    desc: Stop services with docker-compose
+    cmds:
+      - docker-compose down
+      - echo "Services stopped"
+
+  restart:
+    desc: Restart services
+    cmds:
+      - task: down
+      - task: up
+
+  logs:
+    desc: View service logs
+    cmds:
+      - docker-compose logs -f
+
+  ps:
+    desc: Show running services
+    cmds:
+      - docker-compose ps
+
+  health:
+    desc: Check service health
+    cmds:
+      - |
+        echo "Checking service health..."
+        curl -s http://localhost:8000/health | jq || echo "Service not responding"
+
+  test-api:
+    desc: Test API endpoints
+    cmds:
+      - |
+        echo "Testing health endpoint..."
+        curl -s http://localhost:8000/health | jq
+        echo ""
+        echo "Testing chunking endpoint..."
+        curl -s -X POST "http://localhost:8000/chunk" \
+          -H "Content-Type: application/json" \
+          -d '{"text": "Test sentence one. Test sentence two.", "method": "recursive", "chunk_size": 100}' | jq '.total_chunks'
+        echo ""
+        echo "API tests completed"
+
+  rebuild:
+    desc: Rebuild and restart services
+    cmds:
+      - task: down
+      - task: docker-build
+      - task: up
