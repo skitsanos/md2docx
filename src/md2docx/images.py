@@ -7,12 +7,14 @@ Supports downloading from URLs and converting SVG to PNG.
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 from urllib.parse import urlparse
-import tempfile
 
 # Environment variable that provides a comma-separated host allowlist
 ALLOWED_HOSTS_ENV = "MD2DOCX_ALLOWED_IMAGE_HOSTS"
+
+# Maximum image size for remote downloads (3 MB)
+MAX_IMAGE_SIZE = int(os.getenv("MD2DOCX_MAX_IMAGE_SIZE", str(3 * 1024 * 1024)))
 
 # Allowlist provider hook so alternative providers can be plugged in later
 _allowed_hosts_provider: Callable[[], set[str]] = lambda: {
@@ -68,7 +70,14 @@ def _is_host_allowed(url: str) -> bool:
 
 
 def _download_image(url: str) -> BytesIO:
-    """Download image from URL."""
+    """
+    Download image from URL with security controls.
+
+    Security measures:
+    - Redirects are disabled to prevent SSRF via redirect
+    - Response size is limited to MAX_IMAGE_SIZE
+    - Streaming download to avoid memory issues
+    """
     try:
         import requests
     except ImportError:
@@ -79,11 +88,45 @@ def _download_image(url: str) -> BytesIO:
         headers = {
             "User-Agent": "Mozilla/5.0 (compatible; MD2DOCX/1.0)"
         }
-        response = requests.get(url, timeout=30, headers=headers)
+
+        # Disable redirects to prevent SSRF attacks via redirect
+        response = requests.get(
+            url,
+            timeout=30,
+            headers=headers,
+            allow_redirects=False,
+            stream=True
+        )
+
+        # Check for redirect responses
+        if response.status_code in (301, 302, 303, 307, 308):
+            raise ValueError(
+                f"Redirects are not allowed for security reasons. "
+                f"URL {url} redirected with status {response.status_code}"
+            )
+
         response.raise_for_status()
 
+        # Check Content-Length header if available
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > MAX_IMAGE_SIZE:
+            raise ValueError(
+                f"Image exceeds maximum allowed size of {MAX_IMAGE_SIZE // (1024 * 1024)} MB"
+            )
+
+        # Stream download with size limit
+        chunks = []
+        total_size = 0
+        for chunk in response.iter_content(chunk_size=8192):
+            total_size += len(chunk)
+            if total_size > MAX_IMAGE_SIZE:
+                raise ValueError(
+                    f"Image exceeds maximum allowed size of {MAX_IMAGE_SIZE // (1024 * 1024)} MB"
+                )
+            chunks.append(chunk)
+
+        image_data = b"".join(chunks)
         content_type = response.headers.get("Content-Type", "")
-        image_data = response.content
 
         # Check if SVG
         if "svg" in content_type.lower() or url.lower().endswith(".svg"):

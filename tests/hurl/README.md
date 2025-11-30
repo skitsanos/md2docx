@@ -71,6 +71,10 @@ ls tests/hurl/*.hurl | xargs -P 4 -I {} hurl {}
 
 - Use `--file-root .` when running the suite so upload tests can read files from `samples/`.
 - Ensure `MD2DOCX_ALLOWED_IMAGE_HOSTS` includes any remote logo hosts used in tests.
+- **Rate Limiting**: The API has rate limiting enabled (default: 30 requests/minute per IP). When running many tests in quick succession, you may hit the limit. Either:
+  - Increase the limit: `export MD2DOCX_RATE_LIMIT=1000/minute`
+  - Add delays between tests
+  - Run tests sequentially rather than in parallel
 
 ## Test Coverage
 
@@ -92,6 +96,9 @@ Add to your CI pipeline:
 ```yaml
 # GitHub Actions example
 - name: Run API Tests
+  env:
+    MD2DOCX_RATE_LIMIT: 1000/minute  # Increase for CI
+    MD2DOCX_ALLOWED_IMAGE_HOSTS: cdn.plufinder.com
   run: |
     uvicorn md2docx.api:app --host 0.0.0.0 --port 8000 &
     sleep 5

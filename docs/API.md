@@ -219,6 +219,8 @@ API returns standard HTTP status codes:
 | 200 | Success |
 | 400 | Bad Request (invalid input) |
 | 413 | Payload Too Large |
+| 429 | Too Many Requests (rate limit exceeded) |
+| 504 | Gateway Timeout (request timeout) |
 | 500 | Internal Server Error |
 
 Error response format:
@@ -228,16 +230,53 @@ Error response format:
 }
 ```
 
+## Response Headers
+
+All responses include:
+- `X-Request-ID`: Unique identifier for request tracing and debugging
+
 ## Branding Configuration
 
 The `branding` object uses the same structure as the CLI JSON configuration file. See [BRANDING.md](BRANDING.md) for complete reference.
 
-## Remote Logos / Images
+## Security & Configuration
 
-Remote images are only fetched from hosts in the allowlist defined by the `MD2DOCX_ALLOWED_IMAGE_HOSTS` environment variable (comma-separated). Requests using logo URLs outside this list will be rejected.
+The API includes built-in security features configurable via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MD2DOCX_ALLOWED_IMAGE_HOSTS` | (empty) | Comma-separated allowlist of hosts for remote images |
+| `MD2DOCX_RATE_LIMIT` | `30/minute` | Rate limit per IP (e.g., `10/second`, `100/hour`) |
+| `MD2DOCX_REQUEST_TIMEOUT` | `60` | Request timeout in seconds |
+| `MD2DOCX_MAX_IMAGE_SIZE` | `3145728` | Maximum remote image size in bytes (3 MB) |
+| `MD2DOCX_CORS_ORIGINS` | (empty) | Comma-separated list of allowed CORS origins |
+
+### Rate Limiting
+
+All conversion endpoints (`/parse`, `/convert`, `/convert/file`) are rate-limited. The default is 30 requests per minute per IP address.
+
+When the limit is exceeded, the API returns HTTP 429:
+```json
+{
+  "detail": "Rate limit exceeded: 30 per 1 minute"
+}
+```
+
+### CORS
+
+To allow browser-based access from specific origins:
+```bash
+export MD2DOCX_CORS_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+### Remote Images
+
+Remote images (logos in headers/footers) are only fetched from hosts in the allowlist. Additional security:
+- **Host allowlist**: Only approved domains can be fetched
+- **Size limit**: Images larger than `MD2DOCX_MAX_IMAGE_SIZE` are rejected
+- **No redirects**: Redirect responses are blocked to prevent SSRF bypass
 
 Example:
-
 ```bash
 export MD2DOCX_ALLOWED_IMAGE_HOSTS=cdn.example.com,assets.example.org
 ```

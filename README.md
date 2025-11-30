@@ -9,6 +9,7 @@ Convert Markdown content to Word documents with custom branding support.
 - **CLI tool** for command-line conversions
 - **REST API** with FastAPI for programmatic access
 - **Full Markdown support**: headings, lists, tables, code blocks, links, and more
+- **Security features**: rate limiting, CORS, request timeouts, image size limits
 
 ## Installation
 
@@ -63,15 +64,37 @@ curl -X POST http://localhost:8000/convert \
   }' -o document.docx
 ```
 
-### Remote Logo Allowlist
+## Security & Configuration
 
-Remote logos/images are only fetched from hosts listed in the `MD2DOCX_ALLOWED_IMAGE_HOSTS` environment variable (comma-separated). Example:
+The API includes built-in security features configurable via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MD2DOCX_ALLOWED_IMAGE_HOSTS` | (empty) | Comma-separated allowlist of hosts for remote images |
+| `MD2DOCX_RATE_LIMIT` | `30/minute` | Rate limit per IP (e.g., `10/second`, `100/hour`) |
+| `MD2DOCX_REQUEST_TIMEOUT` | `60` | Request timeout in seconds |
+| `MD2DOCX_MAX_IMAGE_SIZE` | `3145728` | Maximum remote image size in bytes (3 MB) |
+| `MD2DOCX_CORS_ORIGINS` | (empty) | Comma-separated list of allowed CORS origins |
+
+Example `.env` file:
 
 ```bash
-export MD2DOCX_ALLOWED_IMAGE_HOSTS=cdn.example.com,assets.example.org
+MD2DOCX_ALLOWED_IMAGE_HOSTS=cdn.example.com,assets.example.org
+MD2DOCX_RATE_LIMIT=30/minute
+MD2DOCX_REQUEST_TIMEOUT=60
+MD2DOCX_MAX_IMAGE_SIZE=3145728
+MD2DOCX_CORS_ORIGINS=https://app.example.com
 ```
 
-Requests with logo URLs outside this allowlist will be rejected.
+### Security Features
+
+- **Rate Limiting**: Prevents API abuse with configurable limits per IP address
+- **Request Timeouts**: Protects against slow/hanging requests
+- **Image Size Limits**: Prevents memory exhaustion from large remote images
+- **Host Allowlist**: Only fetches images from approved domains (SSRF protection)
+- **Redirect Blocking**: Remote image fetches reject redirects to prevent SSRF bypass
+- **CORS**: Configurable cross-origin resource sharing for browser access
+- **Request Tracing**: Each request gets a unique `X-Request-ID` header for debugging
 
 ## Supported Markdown Elements
 
@@ -157,3 +180,4 @@ task up
 - mistune
 - FastAPI
 - uvicorn
+- slowapi (rate limiting)

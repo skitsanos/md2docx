@@ -144,15 +144,25 @@ Each heading level (1-6) can be customized independently:
 - `link_color`: Color for hyperlinks
 - `link_underline`: Boolean to underline links
 
-### Remote Logo Hosts
+### Remote Logo Security
 
-Remote logos/images in branding (e.g., `header.logo_path`) are only fetched from hosts listed in the `MD2DOCX_ALLOWED_IMAGE_HOSTS` environment variable (comma-separated). Example:
+Remote logos/images in branding (e.g., `header.logo_path`) have multiple security controls:
 
+| Control | Environment Variable | Default |
+|---------|---------------------|---------|
+| Host allowlist | `MD2DOCX_ALLOWED_IMAGE_HOSTS` | (empty - blocks all) |
+| Max image size | `MD2DOCX_MAX_IMAGE_SIZE` | 3 MB (3145728 bytes) |
+
+**Host Allowlist**: Only images from approved hosts are fetched.
 ```bash
 export MD2DOCX_ALLOWED_IMAGE_HOSTS=cdn.example.com,assets.example.org
 ```
 
-Requests using logo URLs outside this allowlist will be rejected.
+**Size Limit**: Images larger than the configured maximum are rejected to prevent memory exhaustion.
+
+**Redirect Blocking**: HTTP redirects are blocked to prevent SSRF attacks via redirect.
+
+Requests using logo URLs outside the allowlist or exceeding the size limit will be rejected with an error.
 
 ## Headers and Footers
 

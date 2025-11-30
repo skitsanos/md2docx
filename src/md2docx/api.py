@@ -5,15 +5,23 @@ This module provides HTTP endpoints for converting Markdown content
 to Word documents with custom branding support.
 """
 
+import asyncio
 import json
 import logging
+import os
 import re
+import uuid
 from io import BytesIO
 from typing import Optional, Any
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import __version__
 from .parser import MarkdownParser
@@ -26,6 +34,52 @@ logger = logging.getLogger(__name__)
 # Maximum accepted markdown size (in bytes) for both raw and uploaded content
 MAX_MARKDOWN_SIZE = 5 * 1024 * 1024  # 5 MB
 
+# Request timeout in seconds
+REQUEST_TIMEOUT = int(os.getenv("MD2DOCX_REQUEST_TIMEOUT", "60"))
+
+# Rate limiting configuration (requests per minute)
+RATE_LIMIT = os.getenv("MD2DOCX_RATE_LIMIT", "30/minute")
+
+# CORS configuration
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("MD2DOCX_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Middleware to add unique request IDs for tracing."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        logger.debug("Request %s: %s %s", request_id, request.method, request.url.path)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
+class TimeoutMiddleware(BaseHTTPMiddleware):
+    """Middleware to enforce request timeouts."""
+
+    async def dispatch(self, request: Request, call_next):
+        try:
+            return await asyncio.wait_for(
+                call_next(request),
+                timeout=REQUEST_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            request_id = getattr(request.state, "request_id", "unknown")
+            logger.warning("Request %s timed out after %ds", request_id, REQUEST_TIMEOUT)
+            return JSONResponse(
+                status_code=504,
+                content={"detail": "Request timeout"}
+            )
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -35,6 +89,27 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Register rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add CORS middleware
+if CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "Authorization"],
+    )
+else:
+    # Default restrictive CORS for development
+    logger.info("No CORS origins configured. Set MD2DOCX_CORS_ORIGINS to enable CORS.")
+
+# Add custom middleware (order matters - first added = last executed)
+app.add_middleware(TimeoutMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 
 # Pydantic models for API requests/responses
@@ -91,7 +166,8 @@ async def health_check():
 
 
 @app.post("/parse", response_model=ParseResponse, tags=["Parsing"])
-async def parse_markdown(markdown: str = Form(..., description="Markdown content to parse")):
+@limiter.limit(RATE_LIMIT)
+async def parse_markdown(request: Request, markdown: str = Form(..., description="Markdown content to parse")):
     """
     Parse Markdown content into an Abstract Syntax Tree (AST).
 
@@ -113,7 +189,8 @@ async def parse_markdown(markdown: str = Form(..., description="Markdown content
 
 
 @app.post("/convert", tags=["Conversion"])
-async def convert_markdown(request: ConvertRequest):
+@limiter.limit(RATE_LIMIT)
+async def convert_markdown(request: Request, convert_request: ConvertRequest):
     """
     Convert Markdown content to a Word document.
 
@@ -159,22 +236,22 @@ async def convert_markdown(request: ConvertRequest):
     """
     try:
         # Create branding config from request
-        if request.branding:
-            branding = BrandingConfig.from_dict(request.branding)
+        if convert_request.branding:
+            branding = BrandingConfig.from_dict(convert_request.branding)
         else:
             branding = BrandingConfig()
 
-        if len(request.markdown.encode("utf-8")) > MAX_MARKDOWN_SIZE:
+        if len(convert_request.markdown.encode("utf-8")) > MAX_MARKDOWN_SIZE:
             raise HTTPException(status_code=413, detail="Markdown payload is too large")
 
         # Generate document
         generator = WordGenerator(branding)
-        document = generator.generate_from_markdown(request.markdown)
+        document = generator.generate_from_markdown(convert_request.markdown)
 
         # Convert to bytes
         doc_bytes = generator.to_bytes(document)
 
-        safe_filename = _sanitize_filename(request.filename)
+        safe_filename = _sanitize_filename(convert_request.filename)
 
         # Return as streaming response
         return StreamingResponse(
@@ -196,7 +273,9 @@ async def convert_markdown(request: ConvertRequest):
 
 
 @app.post("/convert/file", tags=["Conversion"])
+@limiter.limit(RATE_LIMIT)
 async def convert_markdown_file(
+    request: Request,
     file: UploadFile = File(..., description="Markdown file to convert"),
     branding: Optional[str] = Form(default=None, description="Branding configuration as JSON string"),
 ):
